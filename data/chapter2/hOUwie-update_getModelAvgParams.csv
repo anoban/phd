@@ -1,4 +1,4 @@
-"names","rates","alpha","sigma.sq","theta","expected_mean","expected_var","tip_state","trait","cd"
+"species","rates","alpha","sigma.sq","theta","expected_mean","expected_var","tip_state","trait","cd"
 "Ratibida_pinnata",0.00100488201973305,0.172946239349867,0.0766867994426519,-0.901780827196614,-0.901780827196614,0.22170704529607,"AM","RD",TRUE
 "Heliopsis_helianthoides",0.00100488201973305,0.172946239349867,0.0766867994426519,-0.901780827196614,-0.901780827196614,0.22170704529607,"AM","RD",TRUE
 "Liatris_aspera",0.00100551539096942,0.172946239349867,0.0766867994426519,-0.901883214099737,-0.9018832140517,0.22170704529607,"AM","RD",TRUE
