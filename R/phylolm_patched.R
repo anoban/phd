@@ -1,14 +1,24 @@
-phylolm_patched <- function(nms, formula, data=list(), phy,
+phylolm_patched <- function(formula, data=list(), phy,
                     model=c("BM","OUrandomRoot","OUfixedRoot","lambda","kappa","delta","EB","trend","GC"),
                     lower.bound=NULL, upper.bound=NULL, starting.value=NULL,
                     measurement_error = FALSE, input_error = NULL,
                     boot=0,full.matrix = TRUE, save = FALSE, REML = FALSE, ...)
 {
 
-
-    print(nms)
-    # the full dataset grouped by state passes subset dataframes with the following columns
-    # x        y group    fill PANEL x_plotlyDomain y_plotlyDomain weight
+    
+    # print(dim(data))
+    # the full dataset grouped by state by ggplot() passes subset dataframes with the following columns
+    # x, y, group, fill, PANEL, x_plotlyDomain, y_plotlyDomain, weight
+    
+    # first figure out what state the passed subframe belongs to
+    NROWS_HARDCODED <- data.frame(list("AM" = 1097, "EcM" = 121, "EcMAM" = 20, "ErM" = 9, "NM" = 16, "NMAM" = 38)) |> t()
+    s <- rownames(NROWS_HARDCODED)[which(NROWS_HARDCODED==nrow(data))] # current state being handled by ggplot()
+    # print(s)
+    TRAITS <- read.csv("../../data/chapter2/FRED/subsets/name_matched_FRED4_1301.csv")[, c("binominal", "state")]
+    # print(dim(TRAITS)) # to test that the dataset is being read in correctly
+    subs <- subset.data.frame(TRAITS, state == s)  # filter the dataset for the current state
+    rownames(data) <- subs$binominal # update the row names
+    # print(data)
 
     ## initialize
     if (!inherits(phy, "phylo")) stop("object \"phy\" is not of class \"phylo\".")
@@ -743,5 +753,7 @@ phylolm_patched <- function(nms, formula, data=list(), phy,
     results$adj.r.squared <- (NMS - RMS) / NMS
 
     class(results) = "phylolm"
-    return(results)
+    print(results) # keep getting the "Failed to fit group 5. Caused by error in `compute_group()`: ! object 'weight' not found"
+    # error with our patched function - looks like ggplot() expects an object named weights in the results???
+    results
 }
