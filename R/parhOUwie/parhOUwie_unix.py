@@ -174,7 +174,7 @@ def handle_parallel_waits(logdir: str, launched_fits: dict[str, subprocess.Popen
         _finished_fits: list[str] = []
         for fit, proccess in launched_fits.items():
             if proccess.poll() is not None:  # if the process has signalled finish
-                tock = datetime.now()
+                tock = datetime.now()  # noqa: DTZ005
                 proccess.terminate()  # terminate the process
                 # the log files will be saved to the same dir as the models themselves
                 logger(directory=logdir, finished_proc=proccess, fit=fit, start=tick, stop=tock)  # log the details of the finished process
@@ -202,7 +202,7 @@ def main(
         houwie_params(discrete=d, continuous=c, null=n) for d in DISCRETE_MODELS for c in CONTINUOUS_MODELS for n in (True, False)
     ]
 
-    tick = datetime.now()  # time at process launch
+    tick = datetime.now()  # time at process launch  # noqa: DTZ005
     procs = {  # launch all the 24 procs in parallel
         f"{params.discrete}{params.continuous}_{'CID' if params.null else 'CD'}": subprocess.Popen(  # subprocess.Popen is non-blocking whereas subprocess.call is blocking
             [
@@ -222,7 +222,11 @@ def main(
                     lb_discrete_model=1e-15,  # the lowest from the old 100 simmap fits was 2.495087e-07
                     ub_discrete_model=10.000,  # in the last fit with 250 simmaps, three models has max rates closer to 1.00
                     lb_continuous_model=None,
-                    ub_continuous_model=None,
+                    # adding a custom upper bound as in our last results many sigma.sq values sat close to the default max => log(2)/(0.01 * Tmax)
+                    # which for our phylogeny is 0.1729462
+                    # theta max is max(log(SRL)) * 10 i.e. largest_continuous_value*10
+                    # for our dataset and phylogeny the defaults for there would be => 0.1729, 0.1729 and 67.335
+                    ub_continuous_model=ou_params(alpha=2.00, sigma_sq=2.00, theta=70.000),
                 ),
             ],
             shell=False,  # do not show the shell

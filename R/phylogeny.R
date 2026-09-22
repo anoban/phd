@@ -38,31 +38,3 @@ stopifnot(all(data$binominal == tree$tip.label))
 
 # serialize the name matched table
 write.table(x = data, file = "../data/chapter2/FRED/subsets/name_matched_FRED4_1301.csv", sep = ',', row.names = FALSE)
-
-
-
-#----------------
-# ErM removal
-#----------------
-
-
-table(data$state)
-
-erm_removed <- data[data$state != "ErM", ] # drop all the ErM records
-table(erm_removed$state)
-
-species_list <- data.frame(species = erm_removed$binominal, genus = erm_removed$F01286, family = erm_removed$F01289, species.relative = NA, genus.relative = NA)
-genus_list <- data.frame(genus = erm_removed$F01286, family = erm_removed$F01289) # genus and family relationships
-genus_list <- genus_list[!duplicated(genus_list), ] # remove duplicated rows
-
-phylogeny <- U.PhyloMaker::phylo.maker(sp.list = species_list, tree = megatree, gen.list = genus_list)
-ape::write.tree(phy = phylogeny$phylo, file = "../data/chapter2/uphylomaker/FRED4_1292.tre")
-
-
-tree <- ape::read.tree("../data/chapter2/uphylomaker/FRED4_1292.tre")
-stopifnot(all(tree$tip_label %in% erm_removed$binominal))
-erm_removed <- erm_removed[match(tree$tip.label, erm_removed$binominal), ] # name match the trait data with the phylogeny
-stopifnot(all(erm_removed$binominal == tree$tip.label))
-
-# serialize the name matched table
-write.table(x = erm_removed, file = "../data/chapter2/FRED/subsets/name_matched_FRED4_1292.csv", sep = ',', row.names = FALSE)
