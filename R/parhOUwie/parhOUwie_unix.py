@@ -122,6 +122,8 @@ def create_rscript(
         return f"library('ape');library('OUwie');phylogeny <- ape::read.tree('{phylogeny}');data <- read.csv('{data}')[, c('{binominal}', '{discrete_trait}', '{continuous_trait}')];stopifnot(all(phylogeny$tip.label == data$binominal));model <- OUwie::hOUwie(phy = phylogeny, data = data, rate.cat = {2 if null_model else 1}, discrete_model = '{discrete_model}', continuous_model = '{continuous_model}', nSim = {nsims}, null.model = {'TRUE' if null_model else 'FALSE'}, lb_discrete_model = {lb_discrete_model}, ub_discrete_model = {ub_discrete_model});saveRDS(object = model, file = '{_savepath}');"
     elif (lb_continuous_model is not None) and (ub_continuous_model is not None):
         return f"library('ape');library('OUwie');phylogeny <- ape::read.tree('{phylogeny}');data <- read.csv('{data}')[, c('{binominal}', '{discrete_trait}', '{continuous_trait}')];stopifnot(all(phylogeny$tip.label == data$binominal));model <- OUwie::hOUwie(phy = phylogeny, data = data, rate.cat = {2 if null_model else 1}, discrete_model = '{discrete_model}', continuous_model = '{continuous_model}', nSim = {nsims}, null.model = {'TRUE' if null_model else 'FALSE'}, lb_discrete_model = {lb_discrete_model}, ub_discrete_model = {ub_discrete_model}, lb_continuous_model = c({lb_continuous_model.alpha}, {lb_continuous_model.sigma_sq}, {lb_continuous_model.theta}), ub_continuous_model = c({ub_continuous_model.alpha}, {ub_continuous_model.sigma_sq}, {ub_continuous_model.theta}));saveRDS(object = model, file = '{_savepath}');"
+    elif ub_continuous_model is not None:  # when only the upper bounds are specified
+        return f"library('ape');library('OUwie');phylogeny <- ape::read.tree('{phylogeny}');data <- read.csv('{data}')[, c('{binominal}', '{discrete_trait}', '{continuous_trait}')];stopifnot(all(phylogeny$tip.label == data$binominal));model <- OUwie::hOUwie(phy = phylogeny, data = data, rate.cat = {2 if null_model else 1}, discrete_model = '{discrete_model}', continuous_model = '{continuous_model}', nSim = {nsims}, null.model = {'TRUE' if null_model else 'FALSE'}, lb_discrete_model = {lb_discrete_model}, ub_discrete_model = {ub_discrete_model}, ub_continuous_model = c({ub_continuous_model.alpha}, {ub_continuous_model.sigma_sq}, {ub_continuous_model.theta}));saveRDS(object = model, file = '{_savepath}');"
     else:
         raise RuntimeError("Provided combination of lb_continuous_model and ub_continuous_model is invalid!")
 
@@ -244,8 +246,8 @@ def main(
 if __name__ == "__main__":
     main(
         rinterpreter=r"R",
-        phylo=r"./ScratchData/FRED4_1301.tre",
-        dataset=r"./ScratchData/name_matched_FRED4_1301.csv",
+        phylo=r"./ScratchData/phylogeny.tre",  # time calibrated phylogeny of the 1301 species
+        dataset=r"./ScratchData/averages.csv",  # trait data + mycorrhizal state data
         savedir=r"./ScratchData/RD/",
         nsims=100,
         continuous_trait="F00679",
