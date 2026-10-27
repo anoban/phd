@@ -1,0 +1,177 @@
+// Shared Stan functions of the anoban models.
+// #include'd into the functions block of anoban_marginal.stan and
+// anoban_pruning.stan; compile with include_paths = "stan".
+
+/* Log marginal density of one species block, with the iid species
+ * effect and the residuals integrated out analytically.
+ *
+ * For species g with n observations, y_gi = mu_g + v_g + e_gi with
+ * v_g ~ N(0, Sigma_b) and e_gi ~ N(0, Sigma_r), the covariance is
+ * I_n (x) Sigma_r + J_n (x) Sigma_b.  Splitting on the projectors
+ * P1 = J/n and P0 = I - P1 gives the exact decomposition
+ *
+ *   log p(y_g) = N_D(ybar_g | mu_g, Sigma_r/n + Sigma_b)      (between)
+ *              - 0.5[(n-1) log|Sigma_r| + tr(Sigma_r^-1 S_g)
+ *                    + D(n-1) log 2pi]                        (within)
+ *              - (D/2) log n                                  (Jacobian)
+ *
+ *   ybar_g : species mean (D)
+ *   Yc_g   : within-species centered observations (D x n)
+ *   n      : number of observations for the species
+ *   mu_g   : species-level mean (D)
+ *   Lr     : cholesky factor of Sigma_r
+ *   Lb     : cholesky factor of Sigma_r/n + Sigma_b
+ */
+real block_marginal(vector ybar_g, matrix Yc_g, int n, vector mu_g,
+                    matrix Lr, matrix Lb) {
+  int D = num_elements(ybar_g);
+  real lp = multi_normal_cholesky_lpdf(ybar_g | mu_g, Lb);
+  if (n > 1) {
+    lp += -0.5 * (2 * (n - 1) * sum(log(diagonal(Lr)))
+                  + sum(square(mdivide_left_tri_low(Lr, Yc_g)))
+                  + D * (n - 1) * log(2 * pi()));
+  }
+  lp += -0.5 * D * log(n);
+  return lp;
+}
+
+/* Per-draw LOO predictive CDF values, for analytic LOO-PIT.
+ *
+ * The estimand behind log_lik[i] is p(y_i | y_{g\i}, theta).  Writing
+ * the species' model as
+ *
+ *   y_gj = mu_g + w + e_gj,  w ~ N(0, Sigma_b),  e_gj ~ N(0, Sigma_r)
+ *
+ * and conditioning on the other n-1 observations of the species gives
+ *
+ *   w | y_{g\i} ~ N(mu_w, Sigma_w)
+ *   Sigma_w = (Sigma_b^-1 + (n-1) Sigma_r^-1)^-1
+ *   mu_w    = Sigma_w (n-1) Sigma_r^-1 (ybar_{g\i} - mu_g)
+ *   y_i | y_{g\i} ~ N(mu_g + mu_w, Sigma_r + Sigma_w)
+ *
+ * (for n = 1 there is nothing to condition on: Sigma_w = Sigma_b,
+ * mu_w = 0).  This returns the per-draw marginal CDF value
+ * Phi((y_id - mu_pred_d)/sigma_pred_d) for each observation and
+ * response; R combines them across draws with the PSIS weights,
+ *
+ *   PIT_id = sum_s w_s Phi((y_id - mu_sid)/sigma_sid)
+ *
+ * so the LOO-PIT is exact: a weighted mixture of normal CDFs, with no
+ * posterior predictive draws and no Monte Carlo error from y_rep.
+ *
+ * Cost is O(1) per observation: Sigma_w depends only on the species.
+ */
+matrix loo_pit_vec(int N, matrix Yt, array[,] int obs_idx,
+                   array[] int ng, array[] vector ybar_arr,
+                   array[] vector mu_arr, matrix Sigma_r,
+                   array[] matrix Sigma_b) {
+  int G = num_elements(ng);
+  int D = rows(Sigma_r);
+  matrix[N, D] out;
+  matrix[D, D] Sr_inv = inverse_spd(Sigma_r);
+  for (g in 1 : G) {
+    int n = ng[g];
+    int n1 = n > 1 ? n - 1 : 0;
+    array[n] int idx = obs_idx[g, 1 : n];
+    vector[D] yb = ybar_arr[g];
+    vector[D] mu_g = mu_arr[g];
+    matrix[D, D] Sigma_w = n1 > 0
+      ? inverse_spd(inverse_spd(Sigma_b[g]) + n1 * Sr_inv)
+      : Sigma_b[g];
+    vector[D] sd_pred = sqrt(diagonal(Sigma_r + Sigma_w));
+    for (i in 1 : n) {
+      vector[D] mu_pred = mu_g;
+      if (n1 > 0) {
+        vector[D] yb1 = yb - (Yt[, idx[i]] - yb) / n1;
+        mu_pred += Sigma_w * (n1 * (Sr_inv * (yb1 - mu_g)));
+      }
+      for (d in 1 : D) {
+        // Keep the CDF value strictly inside (0, 1).  Phi() underflows
+        // to exactly 0, or rounds to exactly 1, for an observation far
+        // enough into the tail of its predictive, and the POT / PIET
+        // uniformity tests require the open interval.  Clamping each
+        // draw keeps the weighted average inside it too, so nothing
+        // downstream has to repair the values.
+        out[idx[i], d] = fmin(fmax(Phi((Yt[d, idx[i]] - mu_pred[d]) / sd_pred[d]),
+                                   machine_precision()),
+                              1 - machine_precision());
+      }
+    }
+  }
+  return out;
+}
+
+/* Per-observation leave-one-out factors
+ *
+ *   L_i(theta) = p(y_i | y_{g\i}, theta)
+ *              = exp( log p(y_g | theta) - log p(y_{g\i} | theta) )
+ *
+ * i.e. the density of observation i given the other observations of
+ * its own species, with the species effect integrated out.  The
+ * leave-one-out posterior removes exactly this factor, so PSIS-LOO
+ * needs it.
+ *
+ *   Sigma_b[g]  between-species covariance of species g: Sigma_t in
+ *               anoban_marginal.stan; Sigma_t + V_down[g] in the
+ *               pruning models, where V_down[g] is the covariance of
+ *               p(u_g | y_-g, theta)
+ *   mu_arr[g]   species mean, including the downward-message mean in
+ *               the pruning models
+ *
+ * Cost is O(1) per observation, not O(n_g).  A recomputation of the
+ * within-species scatter for every left-out observation would make the
+ * whole vector O(sum_g n_g^2): 240352 units against N = 5218 for this
+ * data set, 46 times the work, with 86 % of it in the ten largest
+ * species.  The recomputation is not necessary, because the scatter
+ * changes by a rank-one term when one observation is left out:
+ *
+ *   S_g - S_{g\i} = (n/(n-1)) d_i d_i',   d_i = y_i - ybar_g
+ *
+ * so the entire n-dependent part collapses to one D-vector quadratic
+ * form:
+ *
+ *   log_lik[i] = N_D(ybar_g     | mu_g, Sigma_r/n     + Sigma_b)
+ *              - N_D(ybar_{g\i} | mu_g, Sigma_r/(n-1) + Sigma_b)
+ *              - 0.5[log|Sigma_r| + (n/(n-1)) d_i' Sigma_r^-1 d_i
+ *                    + D log 2pi]
+ *              - (D/2)(log n - log(n-1))
+ *
+ * R/validate.R checks this against the O(n) recomputation.
+ *
+ * Returns a vector of length N in the original observation order.
+ */
+vector loo_factor_vec(int N, matrix Yt, array[,] int obs_idx,
+                      array[] int ng, array[] vector ybar_arr,
+                      array[] vector mu_arr, matrix LSigma_r,
+                      matrix Sigma_r, array[] matrix Sigma_b) {
+  int G = num_elements(ng);
+  int D = rows(Sigma_r);
+  vector[N] out;
+  real ld2pi = D * log(2 * pi());
+  real logdet_Sr = 2 * sum(log(diagonal(LSigma_r)));
+  for (g in 1 : G) {
+    int n = ng[g];
+    array[n] int idx = obs_idx[g, 1 : n];
+    vector[D] yb = ybar_arr[g];
+    vector[D] mu_g = mu_arr[g];
+    real A_n = multi_normal_cholesky_lpdf(yb | mu_g,
+                 cholesky_decompose(Sigma_r / n + Sigma_b[g]));
+    if (n == 1) {
+      out[idx[1]] = A_n;
+    } else {
+      int n1 = n - 1;
+      matrix[D, D] Lb1 = cholesky_decompose(Sigma_r / n1 + Sigma_b[g]);
+      real jac = -0.5 * D * (log(n) - log(n1));
+      for (i in 1 : n) {
+        vector[D] d_i = Yt[, idx[i]] - yb;
+        vector[D] yb1 = yb - d_i / n1;          // = (n ybar_g - y_i)/(n-1)
+        real quad = dot_self(mdivide_left_tri_low(LSigma_r, d_i));
+        out[idx[i]] = A_n
+          - multi_normal_cholesky_lpdf(yb1 | mu_g, Lb1)
+          - 0.5 * (logdet_Sr + (n * 1.0 / n1) * quad + ld2pi)
+          + jac;
+      }
+    }
+  }
+  return out;
+}

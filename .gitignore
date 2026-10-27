@@ -130,7 +130,3 @@ semseg/images/MaxSee/
 *.tar.gz
 *.tar
 *.zip
-
-# keep this from remotes as for now
-R/Aki/
-R/Aki_v2/

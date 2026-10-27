@@ -1,0 +1,248 @@
+
+R version 4.6.1 (2026-06-24) -- "Happy Hop"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> ## ── LOO-PIT plots for fitted models ─────────────────────────────────
+> ##
+> ## Run run_all.R first: this script reads the fits that it saves.
+> ##
+> ##   Rscript run_loo_pit.R                  # all models found in output/
+> ##   Rscript run_loo_pit.R --models M3      # one model
+> ##   Rscript run_loo_pit.R --raw            # if the fits used --raw
+> ##
+> ## Outputs, under output/:
+> ##   loo_pit_<model>.pdf
+> ##
+> ## In an interactive session the script also draws the plots on the
+> ## current device, and `plots[[m]]` keeps each plot for later use.
+> ## Under `Rscript` it does not print them: there is no display, and
+> ## printing would write an extra Rplots.pdf.
+> ##
+> ## Reading the plots: the line is the LOO-PIT ECDF minus its uniform
+> ## expectation, so for a calibrated model it stays near zero and inside
+> ## the band.  An S-shape (first up, then down) means that the PIT values
+> ## are too concentrated near 0.5: the predictive distribution is too
+> ## wide.  The mirror image means that it is too narrow.  A shift up or
+> ## down means that the predictive distribution is biased.  Points at 0
+> ## or 1 are observations far in the tails of their predictive
+> ## distribution; if there are more of them than expected, the tails are
+> ## too thin.
+> 
+> source("./R/build_data.R")
+> source("./R/fit_models.R")
+This is cmdstanr version 0.9.0
+- CmdStanR documentation and vignettes: mc-stan.org/cmdstanr
+- CmdStan path: /home/u90963425/.cmdstan/cmdstan-2.40.0
+- CmdStan version: 2.40.0
+> source("./R/loo_pit.R")
+This is loo version 2.10.1
+- Online documentation and vignettes at mc-stan.org/loo
+- As of v2.0.0 loo defaults to 1 core but we recommend using as many as possible. Use the 'cores' argument or set options(mc.cores = NUM_CORES) for an entire session. 
+This is bayesplot version 1.15.0
+- Online documentation and vignettes at mc-stan.org/bayesplot
+- bayesplot theme set to bayesplot::theme_default()
+   * Does _not_ affect other ggplot2 plots
+   * See ?bayesplot_theme_set for details on theme setting
+> 
+> options(mc.cores = 8)
+> options(loo.cores = 8)
+> 
+> library("ggplot2") # ggsave
+> 
+> LOG_RESPONSE <- TRUE
+> MODELS <- c("M1", "M2", "M3", "M4", "N1", "N2", "N3", "N4")
+> MODELS <- MODELS[file.exists(file.path("output", sprintf("%s_fit.Rds", MODELS)))]
+> if (!length(MODELS)) stop("no fits in output/; run run_all.R first")
+> 
+> cat(sprintf("response scale: %s | models: %s\n", if (LOG_RESPONSE) "log" else "original", paste(MODELS, collapse = ", ")))
+response scale: log | models: M1, M2, M3, M4, N1, N2, N3, N4
+> 
+> ## data once per distinct right-hand side (M* use `state`, N* use `1`)
+> anoban_data_for <- local({
++   cache <- list()
++   function(predictor) {
++     key <- paste0("rhs_", predictor)
++     if (is.null(cache[[key]])) {
++       cache[[key]] <<- build_anoban_data("./data/stan.csv", "./data/FRED4_1301.tre", log_response = LOG_RESPONSE, predictor = predictor)
++     }
++     cache[[key]]
++   }
++ })
+> 
+> plots <- list()
+> for (m in MODELS) {
++ 
++   cat(sprintf("\n── %s ──\n", m))
++   fit <- readRDS(file.path("output", sprintf("%s_fit.Rds", m))) # saved fit
++   pit_obj <- anoban_loo_pit(m, anoban_data_for(ANOBAN_MODELS[[m]]$predictor), fit, stan_dir = "stan") # LOO-PIT
++ 
++   plots[[m]] <- plot_anoban_loo_pit(pit_obj) # LOO-PIT plots via bayesplot
++   # fname <- file.path("output", sprintf("loo_pit_%s.pdf", m)) # opt for .png files instead of .pdfs
++ 
++   # ggsave(filename = fname, plot = plots[[m]], device = "pdf", width = 16, height = 5)
++   # the server does not have the Cairo linux package installed, without that, installing the R package Cairo won't help
++   # ggplot2::ggsave seem to require Cairo to serialize plots as .png files
++   # png(filename = fname, width = 16, height = 5)#, units = "in", res = 500, type = "cairo-png")
++   # print(plots[[m]]) # print to device
++   # dev.off()
++ 
++   # using png() results in figures not having the red tails Aki suggested????
++ 
++   cat(sprintf("%s completed!\n", m))
++ 
++ }
+
+── M1 ──
+Running standalone generated quantities after 8 MCMC chains, all chains in parallel ...
+
+Chain 1  Elapsed Time: 25.417 seconds (Generated Quantities) 
+Chain 2  Elapsed Time: 25.488 seconds (Generated Quantities) 
+Chain 1 finished in 0.0 seconds.
+Chain 2 finished in 0.0 seconds.
+Chain 3  Elapsed Time: 25.526 seconds (Generated Quantities) 
+Chain 5  Elapsed Time: 25.232 seconds (Generated Quantities) 
+Chain 3 finished in 0.0 seconds.
+Chain 5 finished in 0.0 seconds.
+Chain 8  Elapsed Time: 25.514 seconds (Generated Quantities) 
+Chain 8 finished in 0.0 seconds.
+Chain 6  Elapsed Time: 27.576 seconds (Generated Quantities) 
+Chain 6 finished in 0.0 seconds.
+Chain 7  Elapsed Time: 27.547 seconds (Generated Quantities) 
+Chain 7 finished in 0.0 seconds.
+Chain 4  Elapsed Time: 29.112 seconds (Generated Quantities) 
+Chain 4 finished in 0.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 0.0 seconds.
+Total execution time: 31.7 seconds.
+'pit' specified so ignoring 'y','yrep','lw' if specified.
+'pit' specified so ignoring 'y','yrep','lw' if specified.
+'pit' specified so ignoring 'y','yrep','lw' if specified.
+M1 completed!
+
+── M2 ──
+Running standalone generated quantities after 8 MCMC chains, all chains in parallel ...
+
+Chain 3  Elapsed Time: 13.128 seconds (Generated Quantities) 
+Chain 3 finished in 0.0 seconds.
+Chain 6  Elapsed Time: 13.684 seconds (Generated Quantities) 
+Chain 8  Elapsed Time: 13.046 seconds (Generated Quantities) 
+Chain 6 finished in 0.0 seconds.
+Chain 8 finished in 0.0 seconds.
+Chain 2  Elapsed Time: 17.479 seconds (Generated Quantities) 
+Chain 2 finished in 0.0 seconds.
+Chain 4  Elapsed Time: 17.486 seconds (Generated Quantities) 
+Chain 4 finished in 0.0 seconds.
+Chain 5  Elapsed Time: 19.067 seconds (Generated Quantities) 
+Chain 5 finished in 0.0 seconds.
+Chain 1  Elapsed Time: 21.015 seconds (Generated Quantities) 
+Chain 1 finished in 0.0 seconds.
+Chain 7  Elapsed Time: 19.281 seconds (Generated Quantities) 
+Chain 7 finished in 0.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 0.0 seconds.
+Total execution time: 23.5 seconds.
+'pit' specified so ignoring 'y','yrep','lw' if specified.
+'pit' specified so ignoring 'y','yrep','lw' if specified.
+'pit' specified so ignoring 'y','yrep','lw' if specified.
+M2 completed!
+
+── M3 ──
+Running standalone generated quantities after 8 MCMC chains, all chains in parallel ...
+
+Chain 1  Elapsed Time: 22.397 seconds (Generated Quantities) 
+Chain 1 finished in 0.0 seconds.
+Chain 2  Elapsed Time: 22.645 seconds (Generated Quantities) 
+Chain 2 finished in 0.0 seconds.
+Chain 3  Elapsed Time: 23.788 seconds (Generated Quantities) 
+Chain 3 finished in 0.0 seconds.
+Chain 7  Elapsed Time: 22.472 seconds (Generated Quantities) 
+Chain 7 finished in 0.0 seconds.
+Chain 6  Elapsed Time: 23.332 seconds (Generated Quantities) 
+Chain 6 finished in 0.0 seconds.
+Chain 8  Elapsed Time: 22.973 seconds (Generated Quantities) 
+Chain 8 finished in 0.0 seconds.
+Chain 4  Elapsed Time: 31.016 seconds (Generated Quantities) 
+Chain 4 finished in 0.0 seconds.
+Chain 5  Elapsed Time: 33.091 seconds (Generated Quantities) 
+Chain 5 finished in 0.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 0.0 seconds.
+Total execution time: 36.9 seconds.
+'pit' specified so ignoring 'y','yrep','lw' if specified.
+'pit' specified so ignoring 'y','yrep','lw' if specified.
+'pit' specified so ignoring 'y','yrep','lw' if specified.
+M3 completed!
+
+── M4 ──
+Running standalone generated quantities after 8 MCMC chains, all chains in parallel ...
+
+Chain 1  Elapsed Time: 13.187 seconds (Generated Quantities) 
+Chain 1 finished in 0.0 seconds.
+Chain 2  Elapsed Time: 13.327 seconds (Generated Quantities) 
+Chain 2 finished in 0.0 seconds.
+Chain 3  Elapsed Time: 13.93 seconds (Generated Quantities) 
+Chain 3 finished in 0.0 seconds.
+Chain 6  Elapsed Time: 12.817 seconds (Generated Quantities) 
+Chain 6 finished in 0.0 seconds.
+Chain 7  Elapsed Time: 12.75 seconds (Generated Quantities) 
+Chain 7 finished in 0.0 seconds.
+Chain 5  Elapsed Time: 17.074 seconds (Generated Quantities) 
+Chain 5 finished in 0.0 seconds.
+Chain 4  Elapsed Time: 18.555 seconds (Generated Quantities) 
+Chain 4 finished in 0.0 seconds.
+Chain 8  Elapsed Time: 17.609 seconds (Generated Quantities) 
+Chain 8 finished in 0.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 0.0 seconds.
+Total execution time: 23.5 seconds.
+'pit' specified so ignoring 'y','yrep','lw' if specified.
+'pit' specified so ignoring 'y','yrep','lw' if specified.
+'pit' specified so ignoring 'y','yrep','lw' if specified.
+M4 completed!
+
+── N1 ──
+Running standalone generated quantities after 8 MCMC chains, all chains in parallel ...
+
+Chain 1  Elapsed Time: 24.807 seconds (Generated Quantities) 
+Chain 1 finished in 0.0 seconds.
+Chain 2  Elapsed Time: 24.853 seconds (Generated Quantities) 
+Chain 2 finished in 0.0 seconds.
+Chain 3  Elapsed Time: 24.713 seconds (Generated Quantities) 
+Chain 3 finished in 0.0 seconds.
+Chain 4  Elapsed Time: 24.859 seconds (Generated Quantities) 
+Chain 4 finished in 0.0 seconds.
+Chain 8  Elapsed Time: 24.891 seconds (Generated Quantities) 
+Chain 8 finished in 0.0 seconds.
+Chain 5  Elapsed Time: 28.224 seconds (Generated Quantities) 
+Chain 5 finished in 0.0 seconds.
+Chain 6  Elapsed Time: 30.621 seconds (Generated Quantities) 
+Chain 7  Elapsed Time: 30.337 seconds (Generated Quantities) 
+Chain 6 finished in 0.0 seconds.
+Chain 7 finished in 0.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 0.0 seconds.
+Total execution time: 35.6 seconds.
+
+There were 15 warnings (use warnings() to see them)
+Execution halted
+Error while shutting down parallel: unable to terminate some child processes
