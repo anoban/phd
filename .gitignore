@@ -130,3 +130,6 @@ semseg/images/MaxSee/
 *.tar.gz
 *.tar
 *.zip
+
+# keep this private until Aki's paper is published
+R/Aki/*
