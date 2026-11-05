@@ -1,0 +1,320 @@
+
+R version 4.6.1 (2026-06-24) -- "Happy Hop"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> ## ── LOO-PIT plots for fitted models ─────────────────────────────────
+> ##
+> ## Run run_all.R first: this script reads the fits that it saves.
+> ##
+> ##   Rscript run_loo_pit.R                  # all models found in output/
+> ##   Rscript run_loo_pit.R --models M3      # one model
+> ##   Rscript run_loo_pit.R --raw            # if the fits used --raw
+> ##
+> ## Outputs, under output/:
+> ##   loo_pit_<model>.pdf
+> ##
+> ## In an interactive session the script also draws the plots on the
+> ## current device, and `plots[[m]]` keeps each plot for later use.
+> ## Under `Rscript` it does not print them: there is no display, and
+> ## printing would write an extra Rplots.pdf.
+> ##
+> ## Reading the plots: the line is the LOO-PIT ECDF minus its uniform
+> ## expectation, so for a calibrated model it stays near zero and inside
+> ## the band.  An S-shape (first up, then down) means that the PIT values
+> ## are too concentrated near 0.5: the predictive distribution is too
+> ## wide.  The mirror image means that it is too narrow.  A shift up or
+> ## down means that the predictive distribution is biased.  Points at 0
+> ## or 1 are observations far in the tails of their predictive
+> ## distribution; if there are more of them than expected, the tails are
+> ## too thin.
+> 
+> source("./R/build_data.R")
+> source("./R/fit_models.R")
+This is cmdstanr version 0.9.0
+- CmdStanR documentation and vignettes: mc-stan.org/cmdstanr
+- CmdStan path: /home/u90963425/.cmdstan/cmdstan-2.40.0
+- CmdStan version: 2.40.0
+> source("./R/loo_pit.R")
+This is loo version 2.10.1
+- Online documentation and vignettes at mc-stan.org/loo
+- As of v2.0.0 loo defaults to 1 core but we recommend using as many as possible. Use the 'cores' argument or set options(mc.cores = NUM_CORES) for an entire session. 
+This is bayesplot version 1.16.0.9000
+- Online documentation and vignettes at mc-stan.org/bayesplot
+- bayesplot theme set to bayesplot::theme_default()
+   * Does _not_ affect other ggplot2 plots
+   * See ?bayesplot_theme_set for details on theme setting
+> 
+> packageVersion("bayesplot")
+[1] ‘1.16.0.9000’
+> packageVersion("ggplot2")
+[1] ‘4.0.3’
+> packageVersion("patchwork")
+[1] ‘1.3.2’
+> 
+> options(mc.cores = 8)
+> options(loo.cores = 8)
+> 
+> LOG_RESPONSE <- TRUE
+> MODELS <- c("M1", "M2", "M3", "M4", "N1", "N2", "N3", "N4")
+> MODELS <- MODELS[file.exists(file.path("output", sprintf("%s_fit.Rds", MODELS)))]
+> if (!length(MODELS)) stop("no fits in output/; run run_all.R first")
+> 
+> cat(sprintf("response scale: %s | models: %s\n", if (LOG_RESPONSE) "log" else "original", paste(MODELS, collapse = ", ")))
+response scale: log | models: M1, M2, M3, M4, N1, N2, N3, N4
+> 
+> ## data once per distinct right-hand side (M* use `state`, N* use `1`)
+> anoban_data_for <- local({
++   cache <- list()
++   function(predictor) {
++     key <- paste0("rhs_", predictor)
++     if (is.null(cache[[key]])) {
++       cache[[key]] <<- build_anoban_data("./data/stan.csv", "./data/FRED4_1301.tre", log_response = LOG_RESPONSE, predictor = predictor)
++     }
++     cache[[key]]
++   }
++ })
+> 
+> plots <- list()
+> for (m in MODELS) {
++ 
++   cat(sprintf("\n── %s ──\n", m))
++   fit <- readRDS(file.path("output", sprintf("%s_fit.Rds", m))) # saved fit
++   pit_obj <- anoban_loo_pit(m, anoban_data_for(ANOBAN_MODELS[[m]]$predictor), fit, stan_dir = "stan") # LOO-PIT
++ 
++   plots[[m]] <- plot_anoban_loo_pit(pit_obj) # LOO-PIT plots via bayesplot
++   cat(sprintf("LOO-PIT plot for %s has been created!\n", m))
++ 
++ }
+
+── M1 ──
+Running standalone generated quantities after 8 MCMC chains, all chains in parallel ...
+
+Chain 3  Elapsed Time: 22.977 seconds (Generated Quantities) 
+Chain 8  Elapsed Time: 22.321 seconds (Generated Quantities) 
+Chain 3 finished in 0.0 seconds.
+Chain 8 finished in 0.0 seconds.
+Chain 4  Elapsed Time: 22.85 seconds (Generated Quantities) 
+Chain 5  Elapsed Time: 22.816 seconds (Generated Quantities) 
+Chain 4 finished in 0.0 seconds.
+Chain 5 finished in 0.0 seconds.
+Chain 7  Elapsed Time: 22.655 seconds (Generated Quantities) 
+Chain 7 finished in 0.0 seconds.
+Chain 6  Elapsed Time: 22.873 seconds (Generated Quantities) 
+Chain 6 finished in 0.0 seconds.
+Chain 2  Elapsed Time: 29.053 seconds (Generated Quantities) 
+Chain 2 finished in 0.0 seconds.
+Chain 1  Elapsed Time: 31.247 seconds (Generated Quantities) 
+Chain 1 finished in 0.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 0.0 seconds.
+Total execution time: 33.4 seconds.
+LOO-PIT plot for M1 has been created!
+
+── M2 ──
+Running standalone generated quantities after 8 MCMC chains, all chains in parallel ...
+
+Chain 3  Elapsed Time: 13.224 seconds (Generated Quantities) 
+Chain 3 finished in 0.0 seconds.
+Chain 4  Elapsed Time: 13.009 seconds (Generated Quantities) 
+Chain 4 finished in 0.0 seconds.
+Chain 6  Elapsed Time: 12.839 seconds (Generated Quantities) 
+Chain 6 finished in 0.0 seconds.
+Chain 5  Elapsed Time: 13.298 seconds (Generated Quantities) 
+Chain 7  Elapsed Time: 12.678 seconds (Generated Quantities) 
+Chain 5 finished in 0.0 seconds.
+Chain 7 finished in 0.0 seconds.
+Chain 1  Elapsed Time: 16.595 seconds (Generated Quantities) 
+Chain 1 finished in 0.0 seconds.
+Chain 2  Elapsed Time: 16.428 seconds (Generated Quantities) 
+Chain 2 finished in 0.0 seconds.
+Chain 8  Elapsed Time: 15.951 seconds (Generated Quantities) 
+Chain 8 finished in 0.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 0.0 seconds.
+Total execution time: 20.5 seconds.
+LOO-PIT plot for M2 has been created!
+
+── M3 ──
+Running standalone generated quantities after 8 MCMC chains, all chains in parallel ...
+
+Chain 3  Elapsed Time: 22.694 seconds (Generated Quantities) 
+Chain 3 finished in 0.0 seconds.
+Chain 4  Elapsed Time: 22.821 seconds (Generated Quantities) 
+Chain 4 finished in 0.0 seconds.
+Chain 6  Elapsed Time: 22.683 seconds (Generated Quantities) 
+Chain 7  Elapsed Time: 22.359 seconds (Generated Quantities) 
+Chain 6 finished in 0.0 seconds.
+Chain 7 finished in 0.0 seconds.
+Chain 8  Elapsed Time: 22.309 seconds (Generated Quantities) 
+Chain 8 finished in 0.0 seconds.
+Chain 1  Elapsed Time: 26.67 seconds (Generated Quantities) 
+Chain 1 finished in 0.0 seconds.
+Chain 2  Elapsed Time: 27.218 seconds (Generated Quantities) 
+Chain 2 finished in 0.0 seconds.
+Chain 5  Elapsed Time: 27.914 seconds (Generated Quantities) 
+Chain 5 finished in 0.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 0.0 seconds.
+Total execution time: 31.9 seconds.
+LOO-PIT plot for M3 has been created!
+
+── M4 ──
+Running standalone generated quantities after 8 MCMC chains, all chains in parallel ...
+
+Chain 4  Elapsed Time: 12.981 seconds (Generated Quantities) 
+Chain 4 finished in 0.0 seconds.
+Chain 3  Elapsed Time: 13.605 seconds (Generated Quantities) 
+Chain 3 finished in 0.0 seconds.
+Chain 5  Elapsed Time: 13.032 seconds (Generated Quantities) 
+Chain 5 finished in 0.0 seconds.
+Chain 7  Elapsed Time: 13.228 seconds (Generated Quantities) 
+Chain 8  Elapsed Time: 12.912 seconds (Generated Quantities) 
+Chain 7 finished in 0.0 seconds.
+Chain 8 finished in 0.0 seconds.
+Chain 1  Elapsed Time: 18.111 seconds (Generated Quantities) 
+Chain 6  Elapsed Time: 15.864 seconds (Generated Quantities) 
+Chain 1 finished in 0.0 seconds.
+Chain 6 finished in 0.0 seconds.
+Chain 2  Elapsed Time: 17.758 seconds (Generated Quantities) 
+Chain 2 finished in 0.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 0.0 seconds.
+Total execution time: 20.8 seconds.
+LOO-PIT plot for M4 has been created!
+
+── N1 ──
+Running standalone generated quantities after 8 MCMC chains, all chains in parallel ...
+
+Chain 2  Elapsed Time: 22.503 seconds (Generated Quantities) 
+Chain 2 finished in 0.0 seconds.
+Chain 3  Elapsed Time: 23.281 seconds (Generated Quantities) 
+Chain 3 finished in 0.0 seconds.
+Chain 6  Elapsed Time: 22.563 seconds (Generated Quantities) 
+Chain 6 finished in 0.0 seconds.
+Chain 8  Elapsed Time: 23.189 seconds (Generated Quantities) 
+Chain 8 finished in 0.0 seconds.
+Chain 7  Elapsed Time: 23.968 seconds (Generated Quantities) 
+Chain 7 finished in 0.0 seconds.
+Chain 5  Elapsed Time: 24.93 seconds (Generated Quantities) 
+Chain 5 finished in 0.0 seconds.
+Chain 1  Elapsed Time: 28.611 seconds (Generated Quantities) 
+Chain 1 finished in 0.0 seconds.
+Chain 4  Elapsed Time: 28.163 seconds (Generated Quantities) 
+Chain 4 finished in 0.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 0.0 seconds.
+Total execution time: 31.9 seconds.
+LOO-PIT plot for N1 has been created!
+
+── N2 ──
+Running standalone generated quantities after 8 MCMC chains, all chains in parallel ...
+
+Chain 1  Elapsed Time: 13.48 seconds (Generated Quantities) 
+Chain 1 finished in 0.0 seconds.
+Chain 2  Elapsed Time: 13.976 seconds (Generated Quantities) 
+Chain 2 finished in 0.0 seconds.
+Chain 3  Elapsed Time: 13.793 seconds (Generated Quantities) 
+Chain 3 finished in 0.0 seconds.
+Chain 4  Elapsed Time: 13.791 seconds (Generated Quantities) 
+Chain 4 finished in 0.0 seconds.
+Chain 7  Elapsed Time: 13.96 seconds (Generated Quantities) 
+Chain 7 finished in 0.0 seconds.
+Chain 6  Elapsed Time: 14.825 seconds (Generated Quantities) 
+Chain 6 finished in 0.0 seconds.
+Chain 8  Elapsed Time: 14.305 seconds (Generated Quantities) 
+Chain 8 finished in 0.0 seconds.
+Chain 5  Elapsed Time: 17.845 seconds (Generated Quantities) 
+Chain 5 finished in 0.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 0.0 seconds.
+Total execution time: 22.1 seconds.
+LOO-PIT plot for N2 has been created!
+
+── N3 ──
+Running standalone generated quantities after 8 MCMC chains, all chains in parallel ...
+
+Chain 1  Elapsed Time: 23.216 seconds (Generated Quantities) 
+Chain 1 finished in 0.0 seconds.
+Chain 2  Elapsed Time: 22.867 seconds (Generated Quantities) 
+Chain 2 finished in 0.0 seconds.
+Chain 4  Elapsed Time: 22.513 seconds (Generated Quantities) 
+Chain 4 finished in 0.0 seconds.
+Chain 6  Elapsed Time: 23.167 seconds (Generated Quantities) 
+Chain 6 finished in 0.0 seconds.
+Chain 8  Elapsed Time: 23.979 seconds (Generated Quantities) 
+Chain 8 finished in 0.0 seconds.
+Chain 7  Elapsed Time: 24.73 seconds (Generated Quantities) 
+Chain 7 finished in 0.0 seconds.
+Chain 3  Elapsed Time: 28.376 seconds (Generated Quantities) 
+Chain 3 finished in 0.0 seconds.
+Chain 5  Elapsed Time: 28.6 seconds (Generated Quantities) 
+Chain 5 finished in 0.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 0.0 seconds.
+Total execution time: 32.8 seconds.
+LOO-PIT plot for N3 has been created!
+
+── N4 ──
+Running standalone generated quantities after 8 MCMC chains, all chains in parallel ...
+
+Chain 1  Elapsed Time: 13.25 seconds (Generated Quantities) 
+Chain 1 finished in 0.0 seconds.
+Chain 2  Elapsed Time: 13.198 seconds (Generated Quantities) 
+Chain 3  Elapsed Time: 12.998 seconds (Generated Quantities) 
+Chain 2 finished in 0.0 seconds.
+Chain 3 finished in 0.0 seconds.
+Chain 7  Elapsed Time: 12.846 seconds (Generated Quantities) 
+Chain 7 finished in 0.0 seconds.
+Chain 4  Elapsed Time: 14.35 seconds (Generated Quantities) 
+Chain 4 finished in 0.0 seconds.
+Chain 8  Elapsed Time: 14.001 seconds (Generated Quantities) 
+Chain 8 finished in 0.0 seconds.
+Chain 6  Elapsed Time: 15.535 seconds (Generated Quantities) 
+Chain 6 finished in 0.0 seconds.
+Chain 5  Elapsed Time: 17.505 seconds (Generated Quantities) 
+Chain 5 finished in 0.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 0.0 seconds.
+Total execution time: 22.3 seconds.
+LOO-PIT plot for N4 has been created!
+Warning messages:
+1: Input contains infinite or NA values, is constant or has constant tail. Fitting of generalized Pareto distribution not performed. 
+2: Input contains infinite or NA values, is constant or has constant tail. Fitting of generalized Pareto distribution not performed. 
+3: Some Pareto k diagnostic values are too high. See help('pareto-k-diagnostic') for details.
+ 
+4: Some Pareto k diagnostic values are too high. See help('pareto-k-diagnostic') for details.
+ 
+5: Input contains infinite or NA values, is constant or has constant tail. Fitting of generalized Pareto distribution not performed. 
+6: Input contains infinite or NA values, is constant or has constant tail. Fitting of generalized Pareto distribution not performed. 
+7: Input contains infinite or NA values, is constant or has constant tail. Fitting of generalized Pareto distribution not performed. 
+> 
+> # save all the grobs to a file that can be plotted later
+> saveRDS(object = plots, file = "./output/ppc_loo_pit_ecdf.Rds") # let's do the plotting on the laptop - the R installation on the server is a headache for creating plots
+> 
+> proc.time()
+    user   system  elapsed 
+4093.754  221.655 2976.617 
+Error while shutting down parallel: unable to terminate some child processes
