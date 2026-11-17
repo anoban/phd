@@ -130,3 +130,6 @@ semseg/images/MaxSee/
 *.tar.gz
 *.tar
 *.zip
+
+# digital boundary files (shape files)
+*.shp
